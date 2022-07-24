@@ -18,16 +18,18 @@ class ForegroundService {
   static Future<T> _invokeMainChannel<T>(String method,
       [dynamic arguments]) async {
     if (_fromBackgroundIsolateChannel == null) {
-      return await (_mainChannel.invokeMethod(method, arguments) as FutureOr<T>);
+      return await (_mainChannel.invokeMethod(method, arguments)
+          as FutureOr<T>);
     } else {
       return await (_fromBackgroundIsolateChannel!.invokeMethod(
-          "fromBackgroundIsolate", {"method": method, "arguments": arguments}) as FutureOr<T>);
+          "fromBackgroundIsolate",
+          {"method": method, "arguments": arguments}) as FutureOr<T>);
     }
   }
 
   ///set notification text, etc. through methods on this property
   static final ForegroundServiceNotification notification =
-      new ForegroundServiceNotification._(_invokeMainChannel as Future<T> Function<T>(String, [dynamic]));
+      new ForegroundServiceNotification._(_invokeMainChannel);
 
   ///when sendToPort(message) is called in one isolate,
   ///messageHandler(message) will be invoked from the other isolate
@@ -112,7 +114,7 @@ class ForegroundService {
           .toRawHandle();
 
       //don't know why anyone would pass null, but w/e
-      final shouldHoldWakeLock = holdWakeLock ?? false;
+      final shouldHoldWakeLock = holdWakeLock;
 
       await _invokeMainChannel(
           "startForegroundService", <dynamic>[setupHandle, shouldHoldWakeLock]);

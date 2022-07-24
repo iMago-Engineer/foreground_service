@@ -18,12 +18,10 @@ class ForegroundService {
   static Future<T> _invokeMainChannel<T>(String method,
       [dynamic arguments]) async {
     if (_fromBackgroundIsolateChannel == null) {
-      return await (_mainChannel.invokeMethod(method, arguments)
-          as FutureOr<T>);
+      return await (_mainChannel.invokeMethod(method, arguments));
     } else {
       return await (_fromBackgroundIsolateChannel!.invokeMethod(
-          "fromBackgroundIsolate",
-          {"method": method, "arguments": arguments}) as FutureOr<T>);
+          "fromBackgroundIsolate", {"method": method, "arguments": arguments}));
     }
   }
 

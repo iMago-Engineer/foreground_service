@@ -10,7 +10,7 @@ class ForegroundService {
   static const MethodChannel _mainChannel = const MethodChannel(
       "org.thebus.foreground_service/main", JSONMethodCodec());
 
-  static MethodChannel _fromBackgroundIsolateChannel;
+  static MethodChannel? _fromBackgroundIsolateChannel;
   static Future<bool> get isBackgroundIsolate async =>
       (await isBackgroundIsolateSetupComplete()) &&
       (_fromBackgroundIsolateChannel != null);
@@ -18,16 +18,16 @@ class ForegroundService {
   static Future<T> _invokeMainChannel<T>(String method,
       [dynamic arguments]) async {
     if (_fromBackgroundIsolateChannel == null) {
-      return await _mainChannel.invokeMethod(method, arguments);
+      return await (_mainChannel.invokeMethod(method, arguments) as FutureOr<T>);
     } else {
-      return await _fromBackgroundIsolateChannel.invokeMethod(
-          "fromBackgroundIsolate", {"method": method, "arguments": arguments});
+      return await (_fromBackgroundIsolateChannel!.invokeMethod(
+          "fromBackgroundIsolate", {"method": method, "arguments": arguments}) as FutureOr<T>);
     }
   }
 
   ///set notification text, etc. through methods on this property
   static final ForegroundServiceNotification notification =
-      new ForegroundServiceNotification._(_invokeMainChannel);
+      new ForegroundServiceNotification._(_invokeMainChannel as Future<T> Function<T>(String, [dynamic]));
 
   ///when sendToPort(message) is called in one isolate,
   ///messageHandler(message) will be invoked from the other isolate
@@ -39,7 +39,7 @@ class ForegroundService {
     if (_receivePort == null) {
       _receivePort = new ReceivePort();
 
-      _receivePort.listen((data) {
+      _receivePort!.listen((data) {
         final callHandler = _receiveHandler;
 
         callHandler?.call(data);
@@ -60,21 +60,21 @@ class ForegroundService {
       IsolateNameServer.removePortNameMapping(portMappingName);
 
       IsolateNameServer.registerPortWithName(
-          _receivePort.sendPort, portMappingName);
+          _receivePort!.sendPort, portMappingName);
     }
   }
 
   static bool get isIsolateCommunicationSetup =>
       ((_receivePort != null) && (_receiveHandler != null));
 
-  static ReceivePort _receivePort;
+  static ReceivePort? _receivePort;
 
   static const String _MAIN_ISOLATE_PORT_NAME =
       "org.thebus.foreground_service/MAIN_ISOLATE_PORT";
   static const String _BACKGROUND_ISOLATE_PORT_NAME =
       "org.thebus.foreground_service/BACKGROUND_ISOLATE_PORT";
 
-  static void Function(dynamic message) _receiveHandler;
+  static void Function(dynamic message)? _receiveHandler;
 
   ///sends a message to the other isolate, which is handled by whatever
   ///function was passed to setupIsolateCommunication in that isolate
@@ -84,7 +84,7 @@ class ForegroundService {
   /// values that can be sent are subject to the limitations of SendPort,
   /// i.e. primitives and lists/maps thereof
   static Future<void> sendToPort(dynamic message) async {
-    final SendPort targetPort = IsolateNameServer.lookupPortByName(
+    final SendPort? targetPort = IsolateNameServer.lookupPortByName(
         (await isBackgroundIsolate
             ? _MAIN_ISOLATE_PORT_NAME
             : _BACKGROUND_ISOLATE_PORT_NAME));
@@ -104,11 +104,11 @@ class ForegroundService {
   ///communication of simple values between serviceFunction and the main app
   ///can be accomplished using setupIsolateCommunication & sendToPort
   static Future<void> startForegroundService(
-      [Function serviceFunction, bool holdWakeLock = false]) async {
+      [Function? serviceFunction, bool holdWakeLock = false]) async {
     //foreground service should only be started from the main isolate
     if (!(await isBackgroundIsolate)) {
       final setupHandle = PluginUtilities.getCallbackHandle(
-              _setupForegroundServiceCallbackChannel)
+              _setupForegroundServiceCallbackChannel)!
           .toRawHandle();
 
       //don't know why anyone would pass null, but w/e
@@ -134,14 +134,14 @@ class ForegroundService {
   }
 
   ///get the function being executed periodically by the service
-  static Future<Function> getServiceFunction() async =>
+  static Future<Function?> getServiceFunction() async =>
       PluginUtilities.getCallbackFromHandle(
           await _invokeMainChannel("getServiceFunctionHandle"));
 
   ///set the function being executed periodically by the service
   static Future<void> setServiceFunction(Function serviceFunction) async {
     final serviceFunctionHandle =
-        PluginUtilities.getCallbackHandle(serviceFunction).toRawHandle();
+        PluginUtilities.getCallbackHandle(serviceFunction)!.toRawHandle();
 
     await _invokeMainChannel(
         "setServiceFunctionHandle", <dynamic>[serviceFunctionHandle]);
@@ -311,7 +311,7 @@ void _setupForegroundServiceCallbackChannel() async {
     final dynamic args = call.arguments;
     final CallbackHandle handle = CallbackHandle.fromRawHandle(args[0]);
 
-    await PluginUtilities.getCallbackFromHandle(handle)();
+    await PluginUtilities.getCallbackFromHandle(handle)!();
     await ForegroundService._invokeMainChannel(
         "backgroundIsolateCallbackComplete");
   });
